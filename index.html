@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>議事録・タスク・メモ 表示</title>
+<style>
+  :root {
+    --main-color: #3f6f5f;
+    --bg-color: #f6f5f1;
+    --card-bg: #ffffff;
+    --border-color: #ddd8cd;
+    --danger: #b3453a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: "Hiragino Sans", "Yu Gothic", sans-serif;
+    background: var(--bg-color);
+    color: #333;
+  }
+  header {
+    background: var(--main-color);
+    color: #fff;
+    padding: 16px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  header h1 { font-size: 1.1rem; margin: 0; }
+  #logoutBtn {
+    background: transparent;
+    border: 1px solid #fff;
+    color: #fff;
+    padding: 6px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  .container { max-width: 640px; margin: 0 auto; padding: 20px; }
+  .card {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 16px;
+  }
+  h2 { font-size: 1rem; margin-top: 0; }
+  label { display: block; font-size: 0.85rem; margin: 12px 0 4px; }
+  input[type="email"], input[type="password"], input[type="text"], input[type="date"], textarea {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    font-size: 1rem;
+  }
+  textarea { min-height: 240px; font-family: monospace; resize: vertical; }
+  .pw-wrap { position: relative; }
+  .pw-wrap button {
+    position: absolute; right: 6px; top: 6px;
+    background: none; border: none; font-size: 0.8rem; color: var(--main-color); cursor: pointer;
+  }
+  button.primary {
+    background: var(--main-color);
+    color: #fff; border: none; border-radius: 6px;
+    padding: 10px 16px; font-size: 1rem; cursor: pointer;
+    margin-top: 14px; width: 100%;
+  }
+  button.secondary {
+    background: none; border: none; color: var(--main-color);
+    text-decoration: underline; cursor: pointer; font-size: 0.85rem; margin-top: 10px;
+  }
+  .msg { font-size: 0.85rem; margin-top: 10px; }
+  .msg.error { color: var(--danger); }
+  .msg.success { color: var(--main-color); }
+  .hidden { display: none !important; }
+  .file-item {
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 10px;
+    background: var(--card-bg);
+  }
+  .file-item .tag {
+    display: inline-block;
+    font-size: 0.75rem;
+    background: var(--main-color);
+    color: #fff;
+    padding: 2px 8px;
+    border-radius: 10px;
+    margin-right: 6px;
+  }
+  .file-item .name { font-weight: bold; margin: 6px 0; word-break: break-all; }
+  .file-item .actions button {
+    margin-right: 8px;
+    padding: 6px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
+    background: #fafafa;
+    cursor: pointer;
+    font-size: 0.85rem;
+  }
+  .file-item .actions button.delete { color: var(--danger); }
+  #editorModal {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.4);
+    display: flex; align-items: center; justify-content: center; padding: 16px;
+  }
+  #editorModal .box {
+    background: #fff; border-radius: 10px; padding: 20px; width: 100%; max-width: 600px;
+    max-height: 90vh; overflow-y: auto;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>議事録・タスク・メモ</h1>
+  <button id="logoutBtn" class="hidden">ログアウト</button>
+</header>
+
+<div class="container">
+
+  <!-- 登録・ログイン画面 -->
+  <div id="authArea">
+
+    <div class="card" id="loginCard">
+      <h2>ログイン</h2>
+      <label>メールアドレス</label>
+      <input type="email" id="loginEmail">
+      <label>パスワード</label>
+      <div class="pw-wrap">
+        <input type="password" id="loginPassword">
+        <button type="button" onclick="togglePw('loginPassword', this)">表示</button>
+      </div>
+      <button class="primary" onclick="login()">ログイン</button>
+      <div id="loginMsg" class="msg"></div>
+      <button class="secondary" onclick="showCard('registerCard')">新規登録はこちら</button>
+      <button class="secondary" onclick="showCard('forgotCard')">パスワードを忘れた方</button>
+    </div>
+
+    <div class="card hidden" id="registerCard">
+      <h2>新規登録</h2>
+      <label>メールアドレス</label>
+      <input type="email" id="registerEmail">
+      <button class="primary" onclick="register()">仮パスワードを発行</button>
+      <div id="registerMsg" class="msg"></div>
+      <button class="secondary" onclick="showCard('loginCard')">ログイン画面へ戻る</button>
+    </div>
+
+    <div class="card hidden" id="forgotCard">
+      <h2>パスワード再発行</h2>
+      <label>メールアドレス</label>
+      <input type="email" id="forgotEmail">
+      <button class="primary" onclick="forgotPassword()">仮パスワードを再発行</button>
+      <div id="forgotMsg" class="msg"></div>
+      <button class="secondary" onclick="showCard('loginCard')">ログイン画面へ戻る</button>
+    </div>
+
+    <div class="card hidden" id="resetCard">
+      <h2>新しいパスワードの設定</h2>
+      <p class="msg">初回ログインのため、新しいパスワードを設定してください。</p>
+      <label>新しいパスワード（6文字以上）</label>
+      <div class="pw-wrap">
+        <input type="password" id="newPassword">
+        <button type="button" onclick="togglePw('newPassword', this)">表示</button>
+      </div>
+      <button class="primary" onclick="changePassword()">設定する</button>
+      <div id="resetMsg" class="msg"></div>
+    </div>
+
+  </div>
+
+  <!-- メイン画面 -->
+  <div id="mainArea" class="hidden">
+    <div class="card">
+      <label>表示する日付</label>
+      <input type="date" id="dateFilter">
+      <button class="secondary" onclick="clearDate()">日付指定を解除（すべて表示）</button>
+    </div>
+    <div id="fileList"></div>
+  </div>
+
+</div>
+
+<!-- 編集モーダル -->
+<div id="editorModal" class="hidden">
+  <div class="box">
+    <h2 id="editorTitle">編集</h2>
+    <textarea id="editorContent"></textarea>
+    <button class="primary" onclick="saveFile()">保存</button>
+    <button class="secondary" onclick="closeEditor()">閉じる</button>
+    <div id="editorMsg" class="msg"></div>
+  </div>
+</div>
+
+<script>
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbxBHkTs3MIWCBkl0ptO-AFBrUulG0BpmCQqCD7v11MESRKb4XU7ZYa1AB3docsJ__Yd/exec';
+
+let currentFiles = [];
+let editingFile = null;
+
+function api(action, params) {
+  return fetch(GAS_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // プリフライトを避けるため text/plain
+    body: JSON.stringify(Object.assign({ action: action }, params))
+  }).then(function (r) { return r.json(); });
+}
+
+function showCard(id) {
+  ['loginCard', 'registerCard', 'forgotCard', 'resetCard'].forEach(function (c) {
+    document.getElementById(c).classList.toggle('hidden', c !== id);
+  });
+}
+
+function togglePw(inputId, btn) {
+  const el = document.getElementById(inputId);
+  const show = el.type === 'password';
+  el.type = show ? 'text' : 'password';
+  btn.textContent = show ? '非表示' : '表示';
+}
+
+function setMsg(id, text, isError) {
+  const el = document.getElementById(id);
+  el.textContent = text;
+  el.className = 'msg ' + (isError ? 'error' : 'success');
+}
+
+function register() {
+  const email = document.getElementById('registerEmail').value.trim();
+  if (!email) return setMsg('registerMsg', 'メールアドレスを入力してください', true);
+  api('register', { email: email }).then(function (res) {
+    setMsg('registerMsg', res.ok ? res.message : res.error, !res.ok);
+  });
+}
+
+function forgotPassword() {
+  const email = document.getElementById('forgotEmail').value.trim();
+  if (!email) return setMsg('forgotMsg', 'メールアドレスを入力してください', true);
+  api('forgotPassword', { email: email }).then(function (res) {
+    setMsg('forgotMsg', res.ok ? res.message : res.error, !res.ok);
+  });
+}
+
+function login() {
+  const email = document.getElementById('loginEmail').value.trim();
+  const password = document.getElementById('loginPassword').value;
+  api('login', { email: email, password: password }).then(function (res) {
+    if (!res.ok) return setMsg('loginMsg', res.error, true);
+    localStorage.setItem('token', res.token);
+    localStorage.setItem('nickname', res.nickname);
+    if (res.mustReset) {
+      showCard('resetCard');
+    } else {
+      enterMain();
+    }
+  });
+}
+
+function changePassword() {
+  const newPassword = document.getElementById('newPassword').value;
+  api('changePassword', { token: localStorage.getItem('token'), newPassword: newPassword }).then(function (res) {
+    if (!res.ok) return setMsg('resetMsg', res.error, true);
+    enterMain();
+  });
+}
+
+function logout() {
+  localStorage.removeItem('token');
+  localStorage.removeItem('nickname');
+  document.getElementById('mainArea').classList.add('hidden');
+  document.getElementById('logoutBtn').classList.add('hidden');
+  document.getElementById('authArea').classList.remove('hidden');
+  showCard('loginCard');
+}
+
+function enterMain() {
+  document.getElementById('authArea').classList.add('hidden');
+  document.getElementById('mainArea').classList.remove('hidden');
+  document.getElementById('logoutBtn').classList.remove('hidden');
+  loadFiles();
+}
+
+function clearDate() {
+  document.getElementById('dateFilter').value = '';
+  loadFiles();
+}
+
+function loadFiles() {
+  const token = localStorage.getItem('token');
+  const date = document.getElementById('dateFilter').value || null;
+  api('listFiles', { token: token, date: date }).then(function (res) {
+    if (!res.ok) {
+      if (res.error && res.error.indexOf('セッション') !== -1) return logout();
+      return;
+    }
+    currentFiles = res.files;
+    renderFiles();
+  });
+}
+
+function renderFiles() {
+  const list = document.getElementById('fileList');
+  if (currentFiles.length === 0) {
+    list.innerHTML = '<p class="msg">該当するファイルはありません。</p>';
+    return;
+  }
+  list.innerHTML = currentFiles.map(function (f, i) {
+    return '<div class="file-item">' +
+      '<span class="tag">' + f.categoryLabel + '</span>' + (f.date || '') +
+      '<div class="name">' + f.fileName + '</div>' +
+      '<div class="actions">' +
+        '<button onclick="openEditor(' + i + ')">表示・編集</button>' +
+        '<button class="delete" onclick="deleteFile(' + i + ')">削除</button>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+function openEditor(i) {
+  editingFile = currentFiles[i];
+  document.getElementById('editorTitle').textContent = editingFile.fileName;
+  document.getElementById('editorMsg').textContent = '';
+  document.getElementById('editorModal').classList.remove('hidden');
+  document.getElementById('editorContent').value = '読み込み中...';
+  api('getFile', { token: localStorage.getItem('token'), driveFileId: editingFile.driveFileId }).then(function (res) {
+    document.getElementById('editorContent').value = res.ok ? res.content : ('エラー: ' + res.error);
+  });
+}
+
+function closeEditor() {
+  document.getElementById('editorModal').classList.add('hidden');
+  editingFile = null;
+}
+
+function saveFile() {
+  const content = document.getElementById('editorContent').value;
+  api('updateFile', {
+    token: localStorage.getItem('token'),
+    driveFileId: editingFile.driveFileId,
+    category: editingFile.category,
+    content: content
+  }).then(function (res) {
+    setMsg('editorMsg', res.ok ? res.message : res.error, !res.ok);
+    if (res.ok) loadFiles();
+  });
+}
+
+function deleteFile(i) {
+  const f = currentFiles[i];
+  if (!confirm(f.fileName + ' を削除しますか？（元に戻せません）')) return;
+  api('deleteFile', { token: localStorage.getItem('token'), driveFileId: f.driveFileId, category: f.category }).then(function (res) {
+    if (res.ok) loadFiles();
+    else alert(res.error);
+  });
+}
+
+document.getElementById('dateFilter').addEventListener('change', loadFiles);
+document.getElementById('logoutBtn').addEventListener('click', logout);
+
+// 初期表示：セッションがあればそのまま一覧へ
+window.addEventListener('DOMContentLoaded', function () {
+  if (localStorage.getItem('token')) enterMain();
+});
+</script>
+
+</body>
+</html>
